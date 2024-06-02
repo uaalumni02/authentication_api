@@ -1,6 +1,5 @@
 import Db from "../db/db";
 import User from "../models/user";
-
 import Token from "../helpers/jwt/token";
 import bcrypt from "../helpers/bcrypt/bcrypt";
 import validator from "../validator/user";
@@ -18,18 +17,14 @@ class UserData {
         } else {
           const hash = await bcrypt.hashPassword(password, 10);
           const newUser = { ...req.body, password: hash };
-          const {
-            userName,
-            _id: userId,
-            role,
-          } = await Db.saveUser(User, newUser);
+          const { userName, _id: userId, role } = await Db.saveUser(User, newUser);
           let token = "";
-          if (role == "standard" || role == "admin") {
+          if (role === "standard" || role === "admin") {
             token = Token.sign({ userName, userId, role });
           }
           res.cookie("token", token, {
             httpOnly: true,
-            secure: true,
+            secure: process.env.NODE_ENV === 'production', // Use true in production
             sameSite: "strict",
           });
           const userData = { userName, userId, role };
@@ -51,10 +46,7 @@ class UserData {
         if (user == null) {
           return Response.responseBadAuth(res, user);
         }
-        const isSamePassword = await bcrypt.comparePassword(
-          password,
-          user.password
-        );
+        const isSamePassword = await bcrypt.comparePassword(password, user.password);
         if (isSamePassword) {
           const token = Token.sign({
             userName: user.userName,
@@ -62,7 +54,7 @@ class UserData {
           });
           res.cookie("token", token, {
             httpOnly: true,
-            secure: true,
+            secure: process.env.NODE_ENV === 'production', // Use true in production
             sameSite: "strict",
           });
           const userData = { user };
@@ -80,6 +72,7 @@ class UserData {
 
   static async getAllUsers(req, res) {
     try {
+      console.log('Authenticated user:', req.user);
       const allUsers = await Db.getAllUsers(User);
       return Response.responseOk(res, allUsers);
     } catch (error) {
